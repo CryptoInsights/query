@@ -1,3 +1,10 @@
+# Developing env
+.DS_Store
+.idea
+
+# keys
+keys/mykeys
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
