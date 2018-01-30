@@ -1,4 +1,4 @@
-from mongo import db
+from .mongo import db
 
 
 def get_all_tickers():

@@ -1,5 +1,5 @@
 import pymongo
-from mongo import db
+from .mongo import db
 
 
 def get_latest_status():
