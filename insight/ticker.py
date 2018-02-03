@@ -106,7 +106,31 @@ def cross_compare(data, interval=24, reason_func=reason_functions['diff']):
     """
     Horizontally compares data points (along time axis), and produces a new data frame
     with results.
-    For example, we can compare the price of each ticker with that from 24 hours ago.
+
+    For example, given a data frame like:
+
+    | SYM | 00:00 | 01:00 | 02:00 | 03:00 | 04:00 | 05:00 |
+    -------------------------------------------------------
+    | BTC |  100  |  200  |  300  |  400  |  500  |  600  |
+    | ETH |   1   |   2   |   3   |   4   |   5   |   6   |
+    | BTH |   2   |   2   |   1   |   1   |   2   |   4   |
+
+    the result of cross_compare(data, 1) will be:
+
+    | SYM | 01:00 | 02:00 | 03:00 | 04:00 | 05:00 |
+    -----------------------------------------------
+    | BTC |  100  |  100  |  100  |  100  |  100  |
+    | ETH |   1   |   1   |   1   |   1   |   1   |
+    | BTH |   0   |   -1  |   0   |   1   |   2   |
+
+    the result of cross_compare(data, 2, reason_functions['diff-percent']) will be:
+
+    | SYM | 03:00 | 05:00 |
+    -----------------------
+    | BTC |  2.0  |  0.5  |
+    | ETH |  2.0  |  0.5  |
+    | BTH |  -.5  |  3.0  |
+
     :param data: Result from build_df
     :param interval: Time interval in hour
     :param reason_func: How to compare data points
