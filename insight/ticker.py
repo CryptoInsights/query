@@ -1,6 +1,7 @@
 from db import ticker
 from .status import *
-import pandas
+import pandas as pd
+import copy
 import numpy as np
 
 
@@ -59,10 +60,10 @@ def build_df(data, feature):
         else:
             return [None] * len(timestamps)
 
-    timestamps = list(map(lambda ts: pandas.Timestamp(ts_input=ts * 1000000000), sorted(all_timestamp())))
+    timestamps = list(map(lambda ts: pd.Timestamp(ts_input=ts * 1000000000), sorted(all_timestamp())))
     ticker_ids = all_ticker_id(data)
 
-    df = pandas.DataFrame(columns=timestamps, index=ticker_ids)
+    df = pd.DataFrame(columns=timestamps, index=ticker_ids)
 
     for t in data:
         sorted_price_list = sorted(t['price_list'],
@@ -70,8 +71,67 @@ def build_df(data, feature):
         feature_data_list = list(map(lambda p_list: p_list[feature], sorted_price_list))
         feature_data_list = fill_feature_list(feature_data_list, timestamps)
 
-        new_row_series = pandas.Series(data=feature_data_list, index=timestamps)
+        new_row_series = pd.Series(data=feature_data_list, index=timestamps)
 
         df.loc[t['id']] = new_row_series
 
     return df
+
+
+def merge_latest_price(data_point):
+    """
+    For any record in get_ticker_data, flat map the latest price data into the object itself
+    :param data_point:
+    :return:
+    """
+    sorted_price_list = sorted(data_point['price_list'],
+                               key=lambda l: 0 if l['last_updated'] is None else l['last_updated'],
+                               reverse=True)
+    latest_price = sorted_price_list[0]
+
+    result = dict(data_point)
+    del result['price_list']
+    result.update(latest_price)
+
+    return result
+
+
+reason_functions = {
+    'diff': lambda new, old: new - old,
+    'diff-percent': lambda new, old: 1.0 * (new - old) / old
+}
+
+
+def cross_compare(data, interval=24, reason_func=reason_functions['diff']):
+    """
+    Horizontally compares data points (along time axis), and produces a new data frame
+    with results.
+    For example, we can compare the price of each ticker with that from 24 hours ago.
+    :param data: Result from build_df
+    :param interval: Time interval in hour
+    :param reason_func: How to compare data points
+    :return: A new data frame which holds the compared results of data
+    """
+    data = data.dropna(axis=0, how='all')  # remove rows that are all None
+    timestamp_labels = list(data.columns.values)
+
+    # find out which labels to keep based on interval, we ASSUME that the interval between
+    # every two labels is constantly 1 hour
+    # TODO remove the above assumption by looking at real timestamp data
+    label_index_range = range(len(timestamp_labels) - 1, -1, -interval)
+    data_required = data.iloc[:, list(label_index_range)]
+
+    # calculate data with provided reasoning function
+    data_matrix = data_required.as_matrix()
+    for row in data_matrix:
+        for i in range(len(row) - 1):
+            row[i] = reason_func(row[i], row[i + 1])
+
+    result = pd.DataFrame(data_matrix, index=list(data_required.index.values),
+                          columns=list(data_required.columns.values))
+
+    # drop the last column since there is no previous data to compare with
+    # and reverse all columns
+    result = result.iloc[:, :-1]
+    result = result.iloc[:, ::-1]
+    return result
