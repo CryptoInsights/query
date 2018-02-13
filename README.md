@@ -14,3 +14,14 @@ You'll need a RSA key and corresponding certification file in order to connect t
 ### Run
 - `$ pip3 install -r requirements.txt`
 - `$ jupyter notebook`
+
+## Data model
+All data are from [coinmarketcap](https://coinmarketcap.com/api/), and the following aspects are collected:
+- `price_usd`
+- `price_btc`
+- `24h_volume_usd`
+- `market_cap_usd`
+- `available_supply`
+- `percent_change_1h`
+- `percent_change_24h`
+- `percent_change_7d`
