@@ -20,7 +20,10 @@ def get_ticker_data():
         return price
 
     for d in raw_data:
-        d['price_list'] = list(map(convert_prices_to_float, d['price_list']))
+        if 'price_list' in d:
+            d['price_list'] = list(map(convert_prices_to_float, d['price_list']))
+        else:
+            d['price_list'] = []
 
     return raw_data
 
@@ -46,19 +49,42 @@ def all_ticker_id(data):
     return list(map(lambda t: t['id'], data))
 
 
+def fill_feature_list(feature_data, timestamp_list, feature):
+    timestamp_list = sorted(timestamp_list)
+    feature_data = filter(lambda data: data['last_updated'] is not None and data[feature] is not None, feature_data)
+    feature_data = sorted(feature_data, key=lambda d: d['last_updated'])
+    result = [0] * len(timestamp_list)
+
+    if len(feature_data) == 0:
+        return result
+
+    i = 0
+    j = 0
+    while j < len(feature_data) - 1 and feature_data[j]['last_updated'] == feature_data[j + 1]['last_updated']:
+        j += 1
+    if j < len(feature_data) - 1:
+        j += 1
+
+    for d in range(len(timestamp_list)):
+        if feature_data[i]['last_updated'] <= timestamp_list[d] < feature_data[j]['last_updated']:
+            result[d] = feature_data[i][feature]
+        elif timestamp_list[d] >= feature_data[j]['last_updated']:
+            while j < len(feature_data) - 1 and feature_data[j]['last_updated'] == feature_data[j + 1]['last_updated']:
+                j += 1
+            i = j
+            result[d] = feature_data[i][feature]
+            if j < len(feature_data) - 1:
+                j += 1
+
+    return result
+
+
 def build_df(data, feature):
     """
     Build a time-based data frame based on give feature
     :param feature: The name of feature to build on
     :return:
     """
-
-    def fill_feature_list(feature_data, timestamps):
-        # TODO allign data points with timestamps
-        if len(feature_data) == len(timestamps):
-            return feature_data
-        else:
-            return [None] * len(timestamps)
 
     timestamps = list(map(lambda ts: pd.Timestamp(ts_input=ts * 1000000000), sorted(all_timestamp())))
     ticker_ids = all_ticker_id(data)
@@ -68,8 +94,8 @@ def build_df(data, feature):
     for t in data:
         sorted_price_list = sorted(t['price_list'],
                                    key=lambda p_list: 0 if p_list['last_updated'] is None else p_list['last_updated'])
-        feature_data_list = list(map(lambda p_list: p_list[feature], sorted_price_list))
-        feature_data_list = fill_feature_list(feature_data_list, timestamps)
+        feature_data_list = [{'last_updated': p['last_updated'], feature: p[feature]} for p in sorted_price_list]
+        feature_data_list = fill_feature_list(feature_data_list, all_timestamp(), feature)
 
         new_row_series = pd.Series(data=feature_data_list, index=timestamps)
 
